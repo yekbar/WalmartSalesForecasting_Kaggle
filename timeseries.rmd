@@ -1,0 +1,221 @@
+---
+title: "Practicing Time Series"
+author: "kat"
+date: "November 1, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+
+https://github.com/davidthaler/Walmart_competition_code
+https://www.kaggle.com/iamprateek/my-submission-to-wallmart-store-sales-forecasting/notebook
+Thinking: https://www.kaggle.com/c/walmart-recruiting-store-sales-forecasting/discussion/8033
+
+Merging
+1. KAT TRY THIS FIRST...SCROL DOWN, should be able to merge this correclty
+https://www.analyticsvidhya.com/blog/2016/06/9-challenges-data-merging-subsetting-r-python-beginner/
+
+HINT IF CAN'T DO ABOVE>
+https://www.kaggle.com/c/walmart-recruiting-store-sales-forecasting/discussion/7214
+features in time series  https://www.kaggle.com/c/walmart-recruiting-store-sales-forecasting/discussion/7394
+
+
+```{r}
+data(Nile)
+Nile
+class(Nile)
+plot(Nile)
+#plot(ma(Nile))
+
+library(forecast)
+opar <- par(no.readonly=TRUE)
+par(mfrow=c(2,2))
+ylim <- c(min(Nile), max(Nile))
+plot(Nile, main="Raw time series")
+plot(ma(Nile, 3), main="Simple Moving Averages (k=3)", ylim=ylim)
+plot(ma(Nile, 7), main="Simple Moving Averages (k=7)", ylim=ylim)
+plot(ma(Nile, 15), main="Simple Moving Averages (k=15)", ylim=ylim)
+par(opar)
+```
+
+
+```{r}
+data("AirPassengers")
+AirPassengers
+plot(AirPassengers)
+# convert to log because this is best described as multiplicative model, BUT, stl() function that decomposes the trends to find seasonal effcts, etc. only works on additive models, so we change this to addition of logs
+lAirPassengers <- log(AirPassengers)
+plot(lAirPassengers, ylab="log(AirPassengers")
+dev.off()
+
+#decompose time series, period is it forces seasonal effects to be identical across years
+fit <- stl(lAirPassengers, s.window="period")
+plot(fit)
+fit$time.series
+#unlog values to see?
+exp(fit$time.series)
+```
+
+# Seasonal Decompisition
+- month plot
+
+```{r}
+
+
+#par(mfrow=c(2,1))
+library(forecast)
+monthplot(AirPassengers, xlab="",  ylab="")
+seasonplot(AirPassengers, year.labels="TRUE", main="")
+#dev.off()
+
+```
+
+# Making  Prediction
+ -AIC AIkake Information Criterian & Bayesian Info Criterion are performance metric
+```{r}
+library(forecast)
+fit <- ets(nhtemp, model="ANN")
+fit
+
+# 1 step prediction using forecast prediction k steps into future
+forecast(fit, 1)
+plot(forecast(fit, 1), xlab="Year", 
+     ylab=expression(past("temperature(", degree*F, ")",)),
+     main="New Haven Annual Mean Temperature")
+
+accuracy(fit)
+```
+#
+Holt & Holt-Winters exponential smooth model
+- alpha controls exponential decay for level
+- beta smooth parameter controls exponential decay for slope (trend)
+- gamma (seasonal component)
+- parameters range from 0 to 1, larger gives mroe weight to recent observations
+```{r}
+
+library(forecast)
+fit <- ets(log(AirPassengers), model="AAA") # AAA eans level, slope, and seasonal fit
+fit
+
+accuracy(fit)
+
+pred <- forecast(fit, 5)
+
+plot(pred, main="Forecast for AIr Travel",
+     ylab="Log(Airpassengers)", 
+     xlab="Time")
+
+# put forecasts back to original scale
+pred$mean <-exp(pred$mean)
+pred$lower <- exp(pred$lower)
+pred$upper <- exp(pred$upper)
+p <- cbind(pred$mean, pred$lower, pred$upper)
+dimnames(p)[[2]] <- c("mean", "Lo 80", "Low 95", "Hi 80", "Hi95")
+p
+```
+# automated exponential model
+
+```{r}
+library(forecast)
+fit <- ets(JohnsonJohnson)
+fit
+
+plot(forecast(fit)) # if no prediction amount is specified, 8 is default
+```
+
+# ARIMA 
+- AR - autoregressibe
+- MA - moving average
+- I - integration?
+
+1. Ensure Time series is stationary (constant variance, constant means, can change through differencing)
+2. Identify a reasonable model or models (possible values of p & q)
+3. FIt the model
+4. Evaluate the mode's fit, including statistical assumptions and predictive accuracy
+5. Make forecasts
+```{r}
+library(forecast)
+library(tseries)
+plot(Nile)
+ndiffs(Nile)  # tells you how many times they differenced it
+
+dNile <- diff(Nile)
+plot(dNile)
+adf.test(dNile)
+
+# series looks stationary, can move on
+
+acf(dNile) #autocorrelation
+Pacf(dNile) # partial autocorrelation
+
+# outpt suggests ARIMA(0,1,1) - look at tails, after 1 lage seem to get smaller (trails to 0)
+
+```
+
+#ARIMA model
+```{r}
+library(forecast)
+fit <- arima(Nile, order=c(0,1,1))
+fit
+
+accuracy(fit)
+
+```
+
+#Evaluating model fit
+- Residuals should be normally distributed with mean zero
+- autocorrelations should be zero for every possible lag
+- aka - residuals should be normally distributed and independently distributed (no relationship between them)
+- check the assumptions above with code below
+
+- Box.test() provides test that the Ho: autocorrelations are all 0. HA: Autocorrelations are not 0. (results in this case are not significant, which means the autocorrelatinos don't differ from zero, this is good!)
+```{r}
+qqnorm(fit$residuals)
+qqline(fit$residuals)
+Box.test(fit$residuals, type="Ljung-Box")
+
+
+```
+
+#forecasting with an ARIMA model
+
+````{r}
+forecast(fit, 3)
+plot(forecast(fit, 3), xlab="Year", ylab="Annual Flow")
+```
+
+#Automated ARIMA forecasting (like ets() automatic selecting of best exponential model)
+
+
+```{r}
+library(forecast)
+fit <- auto.arima(sunspots)
+fit
+
+forecast(fit, 3)
+
+accuracy(fit)
+
+
+plot(forecast(fit, 3))
+
+#testing fit
+
+qqnorm(fit$residuals)
+qqline(fit$residuals)
+Box.test(fit$residuals, type="Ljung-Box")
+```
+
+```{r}
+library(forecast)
+ausbeer
+
+```
+
+
+

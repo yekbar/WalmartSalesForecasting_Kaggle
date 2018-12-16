@@ -1,0 +1,295 @@
+---
+title: "Department 1 Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+rm=list(ls())
+source('utility.r')
+```
+
+# PURPOSE
+- The purpose of this report is to explore all Department 1's within 45 stores. Since there are over 3300 combinations of stores and departments it makes sense to choose only a subset to look at closely.
+
+```{r}
+
+train <- loadTrain()
+```
+
+# Average Weekly Sales by Store Number
+- The assumption made with this analysis and chart below is that Department 1 is the same for all Walmart Stores. Without more information it is hard to say whether the roughly $46,000 difference between largest and smallest is due to different departments, seasonality of department, region differences, etc.
+- There is a little movement between median and average weekly sales by store which suggests there may be seasonality that causes wide swings in numbers.
+```{r}
+library(dplyr)
+library(ggplot2)
+
+#filter only Department 1
+dept1 <- train[train$Dept == 1, ]
+
+avg2 <- dept1 %>% group_by(Store) %>% summarise(avg=mean(Weekly_Sales))
+avg2
+
+#avg2$avg <- factor(avg2$avg, levels=avg2$avg[order(avg2$avg)])
+  ggplot(avg2, aes(x=reorder(Store, avg), y=avg))+
+  geom_bar(stat='identity') +
+    coord_flip() +
+    ggtitle("Average Sales by Store for Department 1 Only")+
+    ylab("Average Weekly Sales for 2010-2011")+
+    xlab("Store Number")
+  
+  
+
+mediansales <- dept1 %>% group_by(Store) %>% summarise(avg=median(Weekly_Sales))
+mediansales
+
+#avg2$avg <- factor(avg2$avg, levels=avg2$avg[order(avg2$avg)])
+  ggplot(mediansales, aes(x=reorder(Store, avg), y=avg))+
+  geom_bar(stat='identity') +
+    coord_flip() +
+    ggtitle("Median Sales by Store for Department 1 Only")+
+    ylab("Median Weekly Sales for 2010-2011")+
+    xlab("Store Number")+
+    theme_minimal()
+
+```
+
+# Plotting to See Trends
+
+- The first plot shows that weekly sales have a seasonal trend even with stores with low Dept 1 sales. The difference in sales could be due to region and general volume. This graph suggests that Dept 1 is the same across all stores.
+- The second plot plots Dept 1 Weekly Sales for all 45 stores and once again, although it's very dense, you can see the same peaks and platueaus across most of the stores. 
+
+```{r}
+
+highMidLow <- dept1[(dept1$Store == 13 | dept1$Store == 36 | dept1$Store == 25), ]
+#Store2 <- dept1[dept1$Store == 2,]
+
+
+ggplot(highMidLow, aes(x=Date, y=Weekly_Sales)) +
+  geom_line(aes(color=factor(Store)))+
+  ggtitle("Weekly Sales by Store, High-Medium-Low")+
+  xlab("")+
+  #scale_color_manual(values = c("#00AFBB", "#E7B800"))+
+  theme_minimal()
+
+ggplot(dept1, aes(x=Date, y=Weekly_Sales)) +
+  geom_line(aes(color=factor(Store)))+
+  #scale_color_manual(values = c("#00AFBB", "#E7B800"))+
+  theme_minimal()
+
+
+```
+
+# Further Analysis of a High (13) / Medium (25) / Low (36) Sales stores 
+- There 4 distinct seasonal patterns in all 3 types of stores
+    + There is an increase in sales around the end of January to the beginning of February (Weeks 3-4 of the year).
+    + The most puzzling spikes are between weeks 9 to 13. I thought this aligned with Easter since it has the most variation but it is a few weeks too early.
+    + The weekly sales in summer months consistently plateau.
+    + There is a spike around week 40 which is roughly around Halloween
+    + The spike for Christmas/Black Friday appears to come a little later than I expected. It is not consistent between the high, medium, and low stores with high & medium stores having the spike at week 48, and low at 47. Interestingly sales drop dramatically by week 50 but see a small increase the week before Christmas and New Years. 
+
+```{r}
+
+high <- highMidLow[highMidLow$Store == 13, ]
+mid <- highMidLow[highMidLow$Store == 25, ]
+low <- highMidLow[highMidLow$Store == 36, ]
+
+highTS <-  ts(high$Weekly_Sales, start=c(2010, 2, 5), frequency=52)
+midTS <- ts(mid$Weekly_Sales, start=c(2010, 2, 5), frequency=52)
+lowTS <- ts(low$Weekly_Sales, start=c(2010, 2, 5), frequency=52)
+
+
+ggseasonplot(highTS, year.labels = TRUE, year.labels.left = TRUE)+
+  theme_minimal()
+ggseasonplot(midTS, year.labels = TRUE, year.labels.left = TRUE)+
+  theme_minimal()
+ggseasonplot(lowTS, year.labels = TRUE, year.labels.left = TRUE)+
+  theme_minimal()
+```
+
+# Decomposing with Trend, Seasonal, and Irregular Components
+- There is clearly a small increasing trend in sales for Store 1, Dept 1,
+- Seasonally, we can see that sales increase by over 100% for Store 13
+    + The seasonal sales factor is not as strong for Store 36 (Low)
+```{r}
+#HIGH
+lhighTS <- log(highTS)
+plot(lhighTS, ylab="log(highTS)")
+
+fitHigh <- stl(lhighTS, s.window="period")
+plot(fitHigh)
+
+#fitHigh$time.series
+
+
+# MEDIUM
+lmidTS <- log(midTS)
+plot(lmidTS, ylab="log(lmidTS)")
+
+fitMid <- stl(lmidTS, s.window="period")
+plot(fitMid)
+
+#fitMid$time.series
+
+
+#LOW
+llowTS <- log(lowTS)
+plot(llowTS, ylab="log(llowTS)")
+
+fitLow<- stl(llowTS, s.window="period")
+plot(fitLow)
+
+#fitLow$time.series
+
+```
+
+```{r}
+library(forecast)
+fit <- stlf(highTS)
+#fit
+plot(forecast(fit))
+```
+
+# Is the Time Series Stationary?
+- In order to it ARIMA model, I'll check the assumption that the time series is stationary.
+- High:
+    + running the differencing function suggests that this time series does not need to be differences, and thus is stationary.
+    + The Augmented Dickey-Fuller Test also confirms that with p=0.01, and Ho: This time series is not stationary, we reject the null hypothesis in favor of the alternate that this time series is stationary.
+- Medium: 
+    + Same results as high
+- Low:
+    + This time series does not have constant variance and mean, so it will need to be differenced in the model.
+```{r}
+# HIGH
+library(tseries)
+ndiffs(highTS)
+adf.test(highTS)
+
+#MEDIUM
+library(tseries)
+ndiffs(midTS)
+adf.test(midTS)
+
+#LOW
+library(tseries)
+ndiffs(lowTS)
+adf.test(lowTS)
+```
+
+# Using Auto Arima to Plot & Predict
+- For High Weekly Sales:
+    + Although the tests above did not suggest differencing, the auto.arima model works best when differencing each by 1.
+    + The AIC is lowest for the low model, but mean error is lowest for the high model. RMSE is lowest for the low model.
+- Ljung-Box test will show wether autocorrelations are 0, which is necessary for a good model. The Ho: That autocorrelations are 0 and the residuals are normaly distributed.
+    + All three models fail to reject the null hypothesis with p-values greater than 0.05.
+    + The high model has the more normally distributed q-q plot, while the tails of the medium and low model diverge.
+```{r}
+#### HIGH
+fit_autoH <- auto.arima(highTS, D=1)
+fit_autoH
+plot(forecast(fit_autoH, 52)) # forecast for 52 more weeks
+accuracy(fit_autoH)
+
+qqnorm(fit_autoH$residuals)
+qqline(fit_autoH$residuals)
+Box.test(fit_autoH$residuals, type="Ljung-Box")
+
+#plotting actual against fitted
+library(forecast)
+autoplot(highTS, series="data") +
+  forecast::autolayer(fit_autoH$fitted, series="Fitted") +
+  xlab("Year") + ylab("") +
+  theme_minimal()
+
+
+##### MEDIUM
+fit_autoM <- auto.arima(midTS, D=1)
+fit_autoM
+plot(forecast(fit_autoM, 52)) # forecast for 52 more weeks
+accuracy(fit_autoM)
+
+
+qqnorm(fit_autoM$residuals)
+qqline(fit_autoM$residuals)
+Box.test(fit_autoM$residuals, type="Ljung-Box")
+
+#plotting actual against fitted
+library(forecast)
+autoplot(midTS, series="data") +
+  forecast::autolayer(fit_autoM$fitted, series="Fitted") +
+  xlab("Year") + ylab("")  +
+   theme_minimal()
+
+#### LOW
+fit_autoL <- auto.arima(lowTS, D=1)
+fit_autoL
+plot(forecast(fit_autoL, 52)) # forecast for 52 more weeks
+accuracy(fit_autoL)
+
+qqnorm(fit_autoL$residuals)
+qqline(fit_autoL$residuals)
+Box.test(fit_autoL$residuals, type="Ljung-Box")
+
+#plotting actual against fitted
+library(forecast)
+autoplot(lowTS, series="data") +
+  forecast::autolayer(fit_autoL$fitted, series="Fitted") +
+  xlab("Year") + ylab("") +
+   theme_minimal()
+
+
+```
+
+# forecasting with stl() Seasonal Trend Decomposition Using Loess
+- Naive forecasting
+```{r}
+fcast1 <- stlf(highTS, method='naive', h=39)
+fcast2 <- stlf(midTS, method='naive', h=39)
+fcast3 <- stlf(lowTS, method='naive', h=39)
+
+plot(fcast1$residuals)
+qqnorm(fcast1$residuals)
+qqline(fcast1$residuals)
+Box.test(fcast1$residuals, type="Ljung-Box")
+
+
+accuracy(fcast1)
+accuracy(fcast2)
+accuracy(fcast3)
+```
+
+
+# forecasting with stl() Seasonal Trend Decomposition Using Loess
+- Naive forecasting
+```{r}
+fcast1_ets <- stlf(highTS, h=39, s.window=13)
+fcast2_ets <- stlf(midTS, h=39, s.window=13)
+fcast3_ets <- stlf(lowTS, h=39, s.window=13)
+
+plot(fcast1_ets$residuals)
+qqnorm(fcast1_ets$residuals)
+qqline(fcast1_ets$residuals)
+Box.test(fcast1_ets$residuals, type="Ljung-Box")
+
+
+accuracy(fcast1_ets)
+accuracy(fcast2_ets)
+accuracy(fcast3_ets)
+```
+
+
+```{r}
+#high
+highTS <-  ts(high$Weekly_Sales, start=c(2010, 2, 5), frequency=52)
+highTS_all <-  ts(high, start=c(2010, 2, 5), frequency=52)
+fit.lm <- tslm( Weekly_Sales ~ IsHoliday , data=highTS_all)
+
+
+fcast_fit.lm <- forecast(fit.lm, newdata=data.frame(IsHoliday=rep(mean(high[,"IsHoliday"]), h=1:34)))
+fcast_fit.lm
+
+#autoplot(highTS, series="data") 
+  #autolayer(fcast_fit.lm$fitted.values, series="lm")
+
+#autoplot(fcast_fit.lm$fitted.values, series="lm")
+```
