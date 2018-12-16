@@ -1,9 +1,4 @@
----
-title: "Practicum II : Walmart Sales Forecasting Kaggle Competition"
-output: html_document
----
-
-`
+## Practicum II : Walmart Sales Forecasting Kaggle Competition
 
 ### Overview
 - There were 2 main goals for this project:
@@ -19,7 +14,7 @@ output: html_document
 - The raw data consisted of 421,571 rows and 5 columns for roughly 2/2010 - 11/2012 weekly sales data for about 3300 unique combinations of stores and departments. Each row represented one week of sales for one department in one store. 
 
 <center>
-<img src="data.png" width="50%"/>
+<img src="data.PNG" width="50%"/>
 </center>
 
 
@@ -31,7 +26,7 @@ output: html_document
 - For a closer analysis, I looked at median weekly sales and picked a high (#13), mid (25), and low (36) weekly sales store. All 45 Stores had season trends no matter how small so I thought this was an efficient way of evaluating time series models.
 
 <center>
-<img src="weekly.png" width="50%" />
+<img src="weekly.PNG" width="50%" />
 </center>
 
 ### Time Series Models & Fit
