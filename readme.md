@@ -43,11 +43,15 @@
 
 ### Explanation of Files
 
-- **HighMidLowTS.rmd** - this report explores a high, medium, and low weekly store sales to determine the best time series model. 
-- **utlity.R** - this script contains all the functions used to clean, predict, and write out the final time series prediction for the competition.
-- **sql.r** - this script reads in the data that I loaded from the MySQL server. This file is not connected to the others as it was intended as practice for me and not a necessary step in forecasting or predicting. 
-- **predict.R** - this script when run utilitizes the function in utility.R and creates forecasts for all store/department combinations using the STL model described above. Follow the instructions on the top of predict.R to have it run correctly.
 - **Bardash_Walmart_Presentation.ppt** - This is the final PPT presentation for my Practicum II
+- **HighMidLowTS.rmd** - this report explores a high, medium, and low weekly store sales to determine the best time series model. 
+- **data.PNG** - this is the data image in the read me file
+- **predict.R** - this script when run utilitizes the function in utility.R and creates forecasts for all store/department combinations using the STL model described above. Follow the instructions on the top of predict.R to have it run correctly.
+- **sql.r** - this script reads in the data that I loaded from the MySQL server. This file is not connected to the others as it was intended as practice for me and not a necessary step in forecasting or predicting. 
+- **utlity.R** - this script contains all the functions used to clean, predict, and write out the final time series prediction for the competition.
+- **weekly.PNG** - this image is the time series in the read me file
+
+
 
 
 ### Blog & Record of Progress
